@@ -1,0 +1,224 @@
+---
+title: "Exploring Chronic Absenteeism in Charlottesville & Albemarle Schools"
+author: Samantha Toet, [The Equity Center](https://www.virginiaequitycenter.org/)
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(here)
+library(httr)
+library(janitor)
+library(reactable)
+library(readxl)
+library(tidyverse)
+
+ec_colors <- c("Elementary" = "#232D4B", 
+               "Middle" = "#007BAB",
+               "High" = "#F8BE3D")
+
+```
+
+The [Virginia Department of Education](https://www.doe.virginia.gov/programs-services/student-services/attendance-school-engagement) defines chronic absenteeism as
+
+> *"missing ten percent or more of the academic year for any reason, including excused absences, unexcused absences, and suspensions."*
+
+Based on a 180-day school year, that means approximately 18 days per year or 2 to 3 days per month.
+
+----------------------------------------------------
+
+## Charlottesville City Schools
+
+```{r cville, out.width="100%"}
+
+# Data downloaded in the absenteeism.R script
+chronic_absenteeism <- read_csv("/Users/sct2td/Desktop/absenteeism/chronic_absenteeism.csv")
+
+ccs <- chronic_absenteeism %>%
+  filter(subgroup == "All Students",
+         division == "CCS")
+
+ccs_average <- filter(chronic_absenteeism, grepl("CCS", division)) %>%
+  group_by(school_year) %>%
+  summarise(percent = mean(percent))
+
+ccs_labels <- ccs %>%
+  filter(school_year == "2023-2024")
+
+ggplot(ccs, aes(x = school_year, y = percent, group = school, color = school_level)) +
+  geom_smooth(data = ccs_average, aes(x = school_year, y = percent, group = "average"), 
+              color =  "darkgrey", size = 2, se = FALSE) +
+  geom_path(size = 1) +
+  geom_point(size = 1) +
+  annotate("label", x = "2023-2024", y = 20, label = "District Average", hjust = -.01, vjust = .5,  
+           color = "darkgrey", size = 3) +
+  geom_label(data = ccs_labels, aes(label = school_short), hjust = -.1, size = 3) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  scale_color_manual(values = ec_colors, breaks = c("Elementary", "Middle", "High")) +
+  labs(y = "Rate of Chronic Absenteeism",
+       x = "School Year",
+       title = "Charlottesville City Schools",
+       color = "School Level") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 25, vjust = .7)) +
+  scale_x_discrete(expand = expansion(add = c(.5, 1.5)))
+
+```
+
+------------------------------------------------------------------------
+
+## Albemarle County Public Schools
+
+```{r alb, fig.width=10}
+
+acs_all <- chronic_absenteeism %>%
+  filter(division == "ACPS",
+         subgroup == "All Students")
+
+# ACS no Murray High, Comm Lab, or ACCS
+acs <- acs_all %>%
+  filter(school != "Albemarle County Community Public Charter",
+         school != "Benjamin F. Yancey Elementary",
+         school != "Murray High",
+         school != "Murray School",
+         school != "Community Lab School")
+
+acs_average <- filter(chronic_absenteeism, grepl("ACPS", division)) %>%
+  group_by(school_year) %>%
+  summarise(percent = mean(percent))
+
+acs_labels <- acs %>%
+  filter(school_year == "2023-2024")
+
+ggplot(acs, aes(x = school_year, y = percent, group = school_short, color = school_level)) +
+  geom_smooth(data = acs_average, aes(x = school_year, y = percent, group = "average"), 
+              color =  "darkgrey", size = 2, se = FALSE) +
+  geom_path(size = 1) +
+  geom_point(size = 1) +
+  annotate("label", x = "2023-2024", y = 12, label = "District\nAverage", hjust = -.01, vjust = -1,  
+           color = "darkgrey", size = 3) +
+  geom_label(data = acs_labels, aes(label = school_short), hjust = -.1, size = 3) +
+  facet_wrap(~factor(school_level, levels=c("Elementary","Middle","High"))) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  scale_color_manual(values = ec_colors, breaks = c("Elementary", "Middle", "High")) +
+  labs(y = "Rate of Chronic Absenteeism",
+       x = "School Year",
+       title = "Albemarle County Schools",
+       color = "School Level") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 25, vjust = .7), legend.position = "none") +
+  scale_x_discrete(expand = expansion(add = c(0, 2)))
+```
+
+### ACPS Elementary Schools Deep Dive
+
+```{r acps_elem, out.width="100%"}
+acs_elem <- acs %>%
+  filter(school_level == "Elementary")
+
+acs_elem_labels <- acs_elem %>%
+  filter(school_year == "2023-2024")
+
+ggplot(acs_elem, aes(x = school_year, y = percent, group = school_short, color = school_short)) +
+  geom_smooth(data = acs_average, aes(x = school_year, y = percent, group = "average"),
+              color =  "darkgrey", size = 2, se = FALSE) +
+  geom_point(size = 1) +
+  geom_path(size = 1) +
+  annotate("label", x = "2023-2024", y = 12, label = "District\nAverage", hjust = -.01, vjust = -1,  
+           color = "darkgrey", size = 3) +
+  geom_label(data = acs_elem_labels, aes(label = school_short), hjust = -.1, size = 2.5) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  labs(y = "Rate of Chronic Absenteeism",
+       x = "School Year",
+       title = "Albemarle County Elementary Schools") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 25, vjust = .7), legend.position = "none") +
+  scale_x_discrete(expand = expansion(add = c(0.5, 1.5)))
+
+```
+
+------------------------------------------------------------------------
+
+## Student Demographics
+
+```{r demographics, out.width="100%"}
+
+all_average <- chronic_absenteeism %>%
+  filter(subgroup == "All Students") %>%
+  group_by(school_year, division) %>%
+  summarise(percent = mean(percent))
+
+demo_means <- chronic_absenteeism %>% 
+  filter(subgroup != "All Students") %>%
+  group_by(division, subgroup, school_year) %>%
+  summarise(percent = mean(percent))
+
+demo_labels <- demo_means %>%
+  filter(school_year == "2023-2024") %>%
+  mutate(subgroup = case_when(
+    subgroup == "Economically Disadvantaged" ~ "Economically\nDisadvantaged",
+    subgroup == "Students with Disabilities" ~ "Students with\nDisabilities",
+    TRUE ~ subgroup))
+
+avg_labels <- all_average %>%
+  filter(school_year == "2023-2024")
+
+avg_labels$label <- c("District Average", "District Average")
+
+ggplot(demo_means, aes(x = school_year, y = percent, group = subgroup, color = subgroup)) +
+  geom_point(data = all_average, aes(x = school_year, y = percent), 
+             inherit.aes = FALSE, color = "darkgrey") +
+  geom_smooth(data = all_average, aes(x = school_year, y = percent, group = "average"), 
+              color =  "darkgrey", size = 2, se=FALSE) +
+  geom_point(size = 1) +
+  geom_path(size = 1) +
+  geom_label(data = demo_labels, aes(label = subgroup), hjust = -.1, size = 2.5) +
+  geom_label(data = avg_labels, aes(x = school_year, y = percent, label = label, group = "average"),
+             hjust = -.1, size = 2.5, color = "darkgrey") +
+  facet_wrap(~division) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  labs(title = "Student Demographics",
+       x = "School Year",
+       y = "Rate of Chronic Absenteeism") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 25, vjust = .7), legend.position = "none") +
+  scale_x_discrete(expand = expansion(add = c(0.5, 2.5)))
+
+```
+
+------------------------------------------------------------------------
+
+## Table
+
+```{r table}
+
+chronic_absenteeism %>%
+  mutate(percent = percent / 100) %>%
+  rename(
+    "Number of Chronically Absent Students" = n_students,
+    "Percent of Subgroup" = percent) %>%
+  select(-school_level, -school_short) %>%
+  arrange(desc(school_year)) %>%
+  reactable(
+    defaultColDef = colDef(
+      header = function(value)
+        tools::toTitleCase(gsub("_", " ", value, fixed = TRUE)),
+      align = "center",
+      defaultSortOrder = "asc",
+      headerStyle = list(background = "#f7f7f8")
+    ),
+    columns = list(
+      "Percent of Subgroup" = colDef(format = colFormat(percent = TRUE, digits = 1))
+    ),
+    bordered = TRUE,
+    highlight = TRUE,
+    filterable = TRUE,
+    searchable = TRUE
+  )
+
+```
