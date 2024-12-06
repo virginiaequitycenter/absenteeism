@@ -32,12 +32,91 @@ Based on a 180-day school year, that means approximately 18 days per year or 2 t
 
 ----------------------------------------------------
 
-## Charlottesville City Schools
+## Charlottesville & Albemarle Public Schools 
 
-```{r cville, out.width="100%"}
+```{r absenteeism}
 
 # Data downloaded in the absenteeism.R script
 chronic_absenteeism <- read_csv("/Users/sct2td/Desktop/absenteeism/chronic_absenteeism.csv")
+
+# Set Community Lab School / Murray as high school
+chronic_absenteeism <- chronic_absenteeism %>%
+  mutate(school_level = case_when(
+    school == "Murray School" ~ "High",
+    TRUE ~ school_level
+  ))
+
+all <- chronic_absenteeism %>%
+  filter(subgroup == "All Students") %>%
+  group_by(division, school_year, school_level) %>%
+  summarise(percent = mean(percent))
+
+ggplot(all, aes(x = school_year, y = percent, colour = school_level, group = school_level)) +
+  geom_point() +
+  geom_path(size = 1) +
+  facet_wrap(~division) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  scale_color_manual(values = ec_colors, breaks = c("Elementary", "Middle", "High")) +
+  labs(y = "Rate of Chronic Absenteeism",
+       x = "School Year") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 25, vjust = .7))
+
+```
+
+## Student Demographics
+
+```{r demographics, out.width="100%"}
+
+all_average <- chronic_absenteeism %>%
+  filter(subgroup == "All Students") %>%
+  group_by(school_year, division) %>%
+  summarise(percent = mean(percent))
+
+demo_means <- chronic_absenteeism %>% 
+  filter(subgroup != "All Students") %>%
+  group_by(division, subgroup, school_year) %>%
+  summarise(percent = mean(percent))
+
+demo_labels <- demo_means %>%
+  filter(school_year == "2023-2024") %>%
+  mutate(subgroup = case_when(
+    subgroup == "Economically Disadvantaged" ~ "Economically\nDisadvantaged",
+    subgroup == "Students with Disabilities" ~ "Students with\nDisabilities",
+    TRUE ~ subgroup))
+
+avg_labels <- all_average %>%
+  filter(school_year == "2023-2024")
+
+avg_labels$label <- c("District Average", "District Average")
+
+ggplot(demo_means, aes(x = school_year, y = percent, group = subgroup, color = subgroup)) +
+  geom_point(data = all_average, aes(x = school_year, y = percent), 
+             inherit.aes = FALSE, color = "darkgrey") +
+  geom_smooth(data = all_average, aes(x = school_year, y = percent, group = "average"), 
+              color =  "darkgrey", size = 2, se=FALSE) +
+  geom_point(size = 1) +
+  geom_path(size = 1) +
+  geom_label(data = demo_labels, aes(label = subgroup), hjust = -.1, size = 2.5) +
+  geom_label(data = avg_labels, aes(x = school_year, y = percent, label = label, group = "average"),
+             hjust = -.1, size = 2.5, color = "darkgrey") +
+  facet_wrap(~division) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  labs(title = "Student Demographics",
+       x = "School Year",
+       y = "Rate of Chronic Absenteeism") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 25, vjust = .7), legend.position = "none") +
+  scale_x_discrete(expand = expansion(add = c(0.5, 2.5)))
+
+```
+
+------------------------------------------------------------------------
+
+
+## Charlottesville City Schools
+
+```{r cville, out.width="100%"}
 
 ccs <- chronic_absenteeism %>%
   filter(subgroup == "All Students",
@@ -144,54 +223,6 @@ ggplot(acs_elem, aes(x = school_year, y = percent, group = school_short, color =
 
 ------------------------------------------------------------------------
 
-## Student Demographics
-
-```{r demographics, out.width="100%"}
-
-all_average <- chronic_absenteeism %>%
-  filter(subgroup == "All Students") %>%
-  group_by(school_year, division) %>%
-  summarise(percent = mean(percent))
-
-demo_means <- chronic_absenteeism %>% 
-  filter(subgroup != "All Students") %>%
-  group_by(division, subgroup, school_year) %>%
-  summarise(percent = mean(percent))
-
-demo_labels <- demo_means %>%
-  filter(school_year == "2023-2024") %>%
-  mutate(subgroup = case_when(
-    subgroup == "Economically Disadvantaged" ~ "Economically\nDisadvantaged",
-    subgroup == "Students with Disabilities" ~ "Students with\nDisabilities",
-    TRUE ~ subgroup))
-
-avg_labels <- all_average %>%
-  filter(school_year == "2023-2024")
-
-avg_labels$label <- c("District Average", "District Average")
-
-ggplot(demo_means, aes(x = school_year, y = percent, group = subgroup, color = subgroup)) +
-  geom_point(data = all_average, aes(x = school_year, y = percent), 
-             inherit.aes = FALSE, color = "darkgrey") +
-  geom_smooth(data = all_average, aes(x = school_year, y = percent, group = "average"), 
-              color =  "darkgrey", size = 2, se=FALSE) +
-  geom_point(size = 1) +
-  geom_path(size = 1) +
-  geom_label(data = demo_labels, aes(label = subgroup), hjust = -.1, size = 2.5) +
-  geom_label(data = avg_labels, aes(x = school_year, y = percent, label = label, group = "average"),
-             hjust = -.1, size = 2.5, color = "darkgrey") +
-  facet_wrap(~division) +
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +
-  labs(title = "Student Demographics",
-       x = "School Year",
-       y = "Rate of Chronic Absenteeism") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 25, vjust = .7), legend.position = "none") +
-  scale_x_discrete(expand = expansion(add = c(0.5, 2.5)))
-
-```
-
-------------------------------------------------------------------------
 
 ## Table
 
