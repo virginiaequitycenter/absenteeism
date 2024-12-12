@@ -37,19 +37,24 @@ Based on a 180-day school year, that means approximately 18 days per year or 2 t
 ```{r absenteeism}
 
 # Data downloaded in the absenteeism.R script
-chronic_absenteeism <- read_csv("/Users/sct2td/Desktop/absenteeism/chronic_absenteeism.csv")
+chronic_absenteeism <- read_csv("chronic_absenteeism.csv")
 
 # Set Community Lab School / Murray as high school
 chronic_absenteeism <- chronic_absenteeism %>%
   mutate(school_level = case_when(
     school == "Murray School" ~ "High",
-    TRUE ~ school_level
-  ))
+    TRUE ~ school_level))
 
+# All students
 all <- chronic_absenteeism %>%
   filter(subgroup == "All Students") %>%
   group_by(division, school_year, school_level) %>%
-  summarise(percent = mean(percent))
+  summarise(percent = mean(percent)) %>%
+  mutate(
+    division = case_when(
+      division == "ACPS" ~ "Albemarle County", 
+      division == "CCS" ~ "Charlottesville City"),
+    school_year = str_sub(school_year, start = -4))
 
 ggplot(all, aes(x = school_year, y = percent, colour = school_level, group = school_level)) +
   geom_point() +
@@ -58,7 +63,8 @@ ggplot(all, aes(x = school_year, y = percent, colour = school_level, group = sch
   scale_y_continuous(labels = function(x) paste0(x, "%")) +
   scale_color_manual(values = ec_colors, breaks = c("Elementary", "Middle", "High")) +
   labs(y = "Rate of Chronic Absenteeism",
-       x = "School Year") +
+       x = "School Year",
+       color = "School Level") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 25, vjust = .7))
 
